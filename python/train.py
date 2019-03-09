@@ -1,3 +1,5 @@
+# allows user to select and train a model of their choice
+
 import torch
 from torch import nn
 from torchvision import datasets, transforms, models
@@ -18,7 +20,7 @@ train_transforms = transforms.Compose([transforms.RandomRotation(30),
                                        transforms.ToTensor(),
                                        transforms.Normalize([.485,.456,.406],
                                                            [.229,.224,.225])
-                                      ]) 
+                                      ])
 valid_transforms = transforms.Compose([transforms.Resize(256),
                                       transforms.CenterCrop(224),
                                       transforms.ToTensor(),
@@ -53,12 +55,12 @@ validloader = torch.utils.data.DataLoader(image_datasets[1], batch_size=32)
 testloader = torch.utils.data.DataLoader(image_datasets[2], batch_size=32)
 
 dataloaders = [trainloader, validloader, testloader]
-    
 
-with open('cat_to_name.json', 'r') as f: 
+
+with open('cat_to_name.json', 'r') as f:
     cat_to_name = json.load(f)
-    
-    
+
+
 parser = train_args.get_args()
 args = parser.parse_args()
 
@@ -71,7 +73,7 @@ def get_model():
         model = models.vgg16(pretrained = True)
     elif args.vgg == 4:
         model = models.vgg19(pretrained = True)
-    
+
     if args.alexnet:
         model = models.alexnet(pretrained = True)
 
@@ -83,9 +85,9 @@ def get_model():
         model = models.densenet161(pretrained = True)
     elif args.densenet == 4:
         model = models.densenet201(pretrained = True)
- 
+
     for param in model.parameters():
-        param.requires_grad = False 
+        param.requires_grad = False
 
     vgg_classifier = nn.Sequential(OrderedDict([
                                 ('fc1', nn.Linear(25088, 4096)),
@@ -145,9 +147,9 @@ def get_model():
                                 ('dropout2', nn.Dropout(p=.3)),
                                 ('fc3', nn.Linear(4096, 102)),
                                 ('output', nn.LogSoftmax(dim=1))
-                                ]))   
-                    
-    
+                                ]))
+
+
     if args.vgg:
         model.classifier = vgg_classifier
     elif args.alexnet:
@@ -171,13 +173,13 @@ def validation(model, validloader, criterion):
     for data in validloader:
         output = model.forward(inputs)
         valid_loss += criterion(output, labels).item()
-        
+
         ps = torch.exp(output)
         equality = (labels.data == ps.max(dim=1)[1])
         accuracy += equality.type(torch.FloatTensor).mean()
-                
+
     return valid_loss, accuracy
-    
+
 
 criterion = nn.NLLLoss()
 optimizer = optim.Adam(new_model.classifier.parameters(), lr = args.learning_rate)
@@ -185,45 +187,45 @@ optimizer = optim.Adam(new_model.classifier.parameters(), lr = args.learning_rat
 epochs = args.epochs
 print_every = 40
 steps = 0
-    
+
 if args.device == 'cuda':
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 else:
     device = torch.device('cpu')
-    
+
 new_model = new_model.to(device)
-    
+
 for e in range(epochs):
     new_model.train()
     running_loss = 0
     for ii, (inputs, labels) in enumerate(dataloaders[0]):
         steps += 1
-        
+
         inputs, labels = inputs.to(device), labels.to(device)
-        
+
         optimizer.zero_grad()
-        
+
         outputs = new_model.forward(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
-        
+
         running_loss += loss.item()
-        
+
         if steps % print_every == 0:
             new_model.eval()
-            
+
             with torch.no_grad():
                 valid_loss, accuracy = validation(new_model, dataloaders[1], criterion)
-            
+
             print('Epoch: {}/{}... '.format(e+1, epochs),
                  'Loss: {:4f}...'.format(running_loss/print_every),
                  'Valid Loss: {:.4f}...'.format(valid_loss/len(dataloaders[1])),
                  'Valid Accuracy: {:.2%}'.format(accuracy/len(dataloaders[1])))
-           
+
             running_loss = 0
-            
-                            
+
+
             new_model.train()
 
 
@@ -235,4 +237,3 @@ torch.save({'classifier': new_model.classifier.state_dict(),
                  'optimizer': optimizer.state_dict(),
                   'epochs': args.epochs,
                   'class_to_idx': new_model.class_to_idx}, 'checkpoint.pth')
-                                                              

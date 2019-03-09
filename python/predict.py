@@ -1,3 +1,5 @@
+# returns print statements of the trained model's best guesses
+
 import json
 import torch
 from torch import nn
@@ -14,7 +16,7 @@ args = parser.parse_args()
 
 with open(args.category_names, 'r') as f:
     cat_to_name = json.load(f)
-  
+
 def get_model():
     if args.vgg == 1:
         model = models.vgg11(pretrained = True)
@@ -24,7 +26,7 @@ def get_model():
         model = models.vgg16(pretrained = True)
     elif args.vgg == 4:
         model = models.vgg19(pretrained = True)
-    
+
     if args.alexnet:
         model = models.alexnet(pretrained = True)
 
@@ -36,9 +38,9 @@ def get_model():
         model = models.densenet161(pretrained = True)
     elif args.densenet == 4:
         model = models.densenet201(pretrained = True)
- 
+
     for param in model.parameters():
-        param.requires_grad = False 
+        param.requires_grad = False
 
     vgg_classifier = nn.Sequential(OrderedDict([
                                 ('fc1', nn.Linear(25088, 4096)),
@@ -98,9 +100,9 @@ def get_model():
                                 ('dropout2', nn.Dropout(p=.3)),
                                 ('fc3', nn.Linear(4096, 102)),
                                 ('output', nn.LogSoftmax(dim=1))
-                                ]))   
-                    
-    
+                                ]))
+
+
     if args.vgg:
         model.classifier = vgg_classifier
     elif args.alexnet:
@@ -114,26 +116,26 @@ def get_model():
     elif args.densenet == 4:
         model.classifier = dense_classifier4
 
-    return model    
-    
+    return model
+
 trained_model = get_model()
 
 checkpoint = torch.load(args.trained_model)
 
 trained_model.classifier.load_state_dict(checkpoint['classifier'])
-    
+
 if args.device == 'cuda':
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 else:
     device = torch.device('cpu')
-    
+
 def process_image(image):
     ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
         returns an Numpy array
     '''
-    
+
     #Process a PIL image for use in a PyTorch model
-    
+
     size = 256, 256
 
     im = Image.open(image)  #reads in image to transform
@@ -144,7 +146,7 @@ def process_image(image):
     top = int((height - 224)/2)
     bottom = int((height + 224)/2)
     im = im.crop((left, top, right, bottom))
-    
+
     np_image = np.array(im) #defines array of image
 
 
@@ -156,7 +158,7 @@ def process_image(image):
     np_image = (np_image - mean) / std #normalizes values
 
     np_image = np_image.transpose(2, 0, 1) #reshapes matrix so that color dimension is first
-    
+
     return np_image
 
 def predict(image_path, model, topk=5):
@@ -169,21 +171,21 @@ def predict(image_path, model, topk=5):
     tense = torch.from_numpy(img).type(torch.FloatTensor).to(device)
     tense = tense.unsqueeze_(0)
     #turn off changes to gradiant to speed up and find probabilities
-    
+
     with torch.no_grad():
         out = model.forward(tense.to(device))
         out = F.softmax(out.data, dim = 1)
 
     probs, classes = out.topk(topk)
-    
+
     probs = probs.type(torch.FloatTensor).to('cpu').numpy().flatten('F')
-    
-    
+
+
     classes = classes.type(torch.FloatTensor).to('cpu').numpy()
     classes = classes.astype(int)
     classes = classes.astype(str)
 
-    
+
     return probs, classes
 
 probs, classes = predict(args.image_path, trained_model, args.topk)
@@ -198,4 +200,3 @@ elif args.output == 'topk':
     for i in range(len(flower_names)):
         print('The number {} most likely class is {}, with a probability of {:.2%}.'.format(x, flower_names[i], probs[i]))
         x += 1
-      

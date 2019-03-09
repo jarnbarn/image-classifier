@@ -1,3 +1,5 @@
+# tests saved trained model from train.py program
+
 import test_args
 import torch
 import torch
@@ -22,7 +24,7 @@ train_transforms = transforms.Compose([transforms.RandomRotation(30),
                                        transforms.ToTensor(),
                                        transforms.Normalize([.485,.456,.406],
                                                            [.229,.224,.225])
-                                      ]) 
+                                      ])
 valid_transforms = transforms.Compose([transforms.Resize(256),
                                       transforms.CenterCrop(224),
                                       transforms.ToTensor(),
@@ -63,7 +65,7 @@ if args.device == 'cuda':
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 else:
     device = torch.device('cpu')
-    
+
 def get_model():
     if args.vgg == 1:
         model = models.vgg11(pretrained = True)
@@ -73,7 +75,7 @@ def get_model():
         model = models.vgg16(pretrained = True)
     elif args.vgg == 4:
         model = models.vgg19(pretrained = True)
-    
+
     if args.alexnet:
         model = models.alexnet(pretrained = True)
 
@@ -85,9 +87,9 @@ def get_model():
         model = models.densenet161(pretrained = True)
     elif args.densenet == 4:
         model = models.densenet201(pretrained = True)
- 
+
     for param in model.parameters():
-        param.requires_grad = False 
+        param.requires_grad = False
 
     vgg_classifier = nn.Sequential(OrderedDict([
                                 ('fc1', nn.Linear(25088, 4096)),
@@ -156,9 +158,9 @@ def get_model():
                                 ('dropout2', nn.Dropout(p=.3)),
                                 ('fc3', nn.Linear(2304, 102)),
                                 ('output', nn.LogSoftmax(dim=1))
-                                ]))   
-                    
-    
+                                ]))
+
+
     if args.vgg:
         model.classifier = vgg_classifier
     elif args.alexnet:
@@ -172,8 +174,8 @@ def get_model():
     elif args.densenet == 4:
         model.classifier = dense_classifier4
 
-    return model    
-    
+    return model
+
 trained_model = get_model()
 
 checkpoint = torch.load('checkpoint.pth')
@@ -194,6 +196,6 @@ with torch.no_grad():
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
-        
-        
+
+
 print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
